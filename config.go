@@ -32,8 +32,10 @@ type Config struct {
 		MoveTo8     string `yaml:"moveTo8"`
 		MoveTo9     string `yaml:"moveTo9"`
 		ResizeFull  string `yaml:"resizeFull"`
-		ResizeHalf  string `yaml:"resizeHalf"`
+		ResizeHalfLeft  string `yaml:"resizeHalfLeft"`
+		ResizeHalfRight string `yaml:"resizeHalfRight"`
 		ResizeSmall string `yaml:"resizeSmall"`
+		Close string `yaml:"close"`
 	} `yaml:"hotkeys"`
 }
 
@@ -72,8 +74,10 @@ func loadConfig() {
 	currentConfig.Hotkeys.MoveTo8 = "Alt+Shift+8"
 	currentConfig.Hotkeys.MoveTo9 = "Alt+Shift+9"
 	currentConfig.Hotkeys.ResizeFull = "Alt+Q"
-	currentConfig.Hotkeys.ResizeHalf = "Alt+W"
-	currentConfig.Hotkeys.ResizeSmall = "Alt+E"
+	currentConfig.Hotkeys.ResizeHalfLeft = "Alt+A"
+	currentConfig.Hotkeys.ResizeHalfRight = "Alt+S"
+	currentConfig.Hotkeys.ResizeSmall = "Alt+W"
+	currentConfig.Hotkeys.Close = "Alt+Shift+D"
 
 	configPath := getConfigPath()
 	data, err := os.ReadFile(configPath)

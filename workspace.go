@@ -30,16 +30,33 @@ const (
 )
 
 var currentHash = make(map[int][]Window)
+var lastFocused = make(map[int]win.HWND)
+
+func isValidTargetWindow(hwnd win.HWND, currentWorkspace int) bool {
+	if hwnd == 0 || !win.IsWindowVisible(hwnd) {
+		return false
+	}
+	for ws, windows := range currentHash {
+		if ws != currentWorkspace {
+			for _, w := range windows {
+				if w.Hwnd == hwnd {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
 
 func setWindowAnimation(hwnd win.HWND, enable bool) {
 	dwmapi := syscall.NewLazyDLL("dwmapi.dll")
 	dwmSetWindowAttribute := dwmapi.NewProc("DwmSetWindowAttribute")
-	
+
 	val := int32(1)
 	if enable {
 		val = 0
 	}
-	
+
 	_, _, _ = dwmSetWindowAttribute.Call(
 		uintptr(hwnd),
 		uintptr(DWMWA_TRANSITIONS_FORCEDISABLED),
@@ -84,10 +101,14 @@ func startHotkeyLoop() {
 	reg(17, currentConfig.Hotkeys.MoveTo8)
 	reg(18, currentConfig.Hotkeys.MoveTo9)
 
-	// Register resizing scripts 19-21
+	// Register resizing scripts 19-22
 	reg(19, currentConfig.Hotkeys.ResizeFull)
-	reg(20, currentConfig.Hotkeys.ResizeHalf)
-	reg(21, currentConfig.Hotkeys.ResizeSmall)
+	reg(20, currentConfig.Hotkeys.ResizeHalfLeft)
+	reg(21, currentConfig.Hotkeys.ResizeHalfRight)
+	reg(22, currentConfig.Hotkeys.ResizeSmall)
+
+	// Register close script
+	reg(23, currentConfig.Hotkeys.Close)
 
 	var windowList []Window
 
@@ -101,7 +122,7 @@ func startHotkeyLoop() {
 		}
 
 		var cloaked int32
-		dwmGetWindowAttribute.Call(
+		_, _, _ = dwmGetWindowAttribute.Call(
 			uintptr(hwnd),
 			uintptr(DWMWA_CLOAKED),
 			uintptr(unsafe.Pointer(&cloaked)),
@@ -164,9 +185,9 @@ func startHotkeyLoop() {
 		if msg.Message == WM_HOTKEY {
 			pressedID := int(msg.WParam)
 
-			if pressedID >= 19 && pressedID <= 21 {
+			if pressedID >= 19 && pressedID <= 22 {
 				hwnd := win.GetForegroundWindow()
-				if hwnd != 0 {
+				if hwnd != 0 && isValidTargetWindow(hwnd, currentWorkspace) {
 					win.ShowWindow(hwnd, win.SW_RESTORE)
 
 					var workArea win.RECT
@@ -186,20 +207,34 @@ func startHotkeyLoop() {
 						x = workArea.Left + pad
 						y = workArea.Top + pad
 					case 20:
-						// half
+						// half Left
 						w = (fullW - (pad * 3)) / 2
 						h = fullH - (pad * 2)
 						x = workArea.Left + pad
 						y = workArea.Top + pad
 					case 21:
+						// half Right
+						w = (fullW - (pad * 3)) / 2
+						h = fullH - (pad * 2)
+						x = workArea.Right - w - pad
+						y = workArea.Top + pad
+					case 22:
 						// small
 						w = fullW / 2
 						h = fullH / 2
-						x = workArea.Left + (fullW - w) / 2
-						y = workArea.Top + (fullH - h) / 2
+						x = workArea.Left + (fullW-w)/2
+						y = workArea.Top + (fullH-h)/2
 					}
 
 					win.SetWindowPos(hwnd, 0, x, y, w, h, win.SWP_NOZORDER|win.SWP_NOACTIVATE)
+				}
+				continue
+			}
+
+			if pressedID == 23 {
+				hwnd := win.GetForegroundWindow()
+				if hwnd != 0 && isValidTargetWindow(hwnd, currentWorkspace) {
+					win.PostMessage(hwnd, win.WM_CLOSE, 0, 0)
 				}
 				continue
 			}
@@ -212,6 +247,10 @@ func startHotkeyLoop() {
 			}
 
 			if targetWorkspace >= 1 && targetWorkspace <= 9 && targetWorkspace != currentWorkspace {
+				if fg := win.GetForegroundWindow(); fg != 0 && win.IsWindowVisible(fg) {
+					lastFocused[currentWorkspace] = fg
+				}
+
 				if isMove {
 					hwnd := win.GetForegroundWindow()
 					if hwnd != 0 {
@@ -225,7 +264,7 @@ func startHotkeyLoop() {
 
 						lowerTitle := strings.ToLower(title)
 						isSystemWindow := false
-						
+
 						if length == 0 {
 							isSystemWindow = true
 						} else if lowerTitle == "windows input experience" ||
@@ -247,6 +286,7 @@ func startHotkeyLoop() {
 							setWindowAnimation(hwnd, false)
 							win.ShowWindow(hwnd, win.SW_HIDE)
 							currentHash[targetWorkspace] = append(currentHash[targetWorkspace], Window{Hwnd: hwnd, Title: title})
+							lastFocused[targetWorkspace] = hwnd
 						}
 					}
 				}
@@ -286,7 +326,23 @@ func startHotkeyLoop() {
 				for _, w := range currentHash[targetWorkspace] {
 					setWindowAnimation(w.Hwnd, true)
 					win.ShowWindow(w.Hwnd, win.SW_SHOW)
-					win.SetForegroundWindow(w.Hwnd)
+				}
+
+				targetHwnd := lastFocused[targetWorkspace]
+				found := false
+				if targetHwnd != 0 {
+					for _, w := range currentHash[targetWorkspace] {
+						if w.Hwnd == targetHwnd {
+							found = true
+							break
+						}
+					}
+				}
+
+				if found {
+					win.SetForegroundWindow(targetHwnd)
+				} else if len(currentHash[targetWorkspace]) > 0 {
+					win.SetForegroundWindow(currentHash[targetWorkspace][0].Hwnd)
 				}
 
 				currentWorkspace = targetWorkspace
