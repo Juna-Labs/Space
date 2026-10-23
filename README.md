@@ -44,8 +44,12 @@ You can fully customize these hotkeys by right-clicking the System Tray icon and
 
 ### Window Resizing
 * Resize to Full (Padded): `Alt + Q`
-* Resize to Half: `Alt + W`
-* Resize to Small (Centered): `Alt + E`
+* Resize to Half Left: `Alt + A`
+* Resize to Half Right: `Alt + S`
+* Resize to Small (Centered): `Alt + W`
+
+### Window Closing
+* Close Window: `alt + shift + D`
 
 ## Configuration
 
@@ -61,8 +65,9 @@ hotkeys:
   workspace1: Alt+1
   moveTo1: Alt+Shift+1
   resizeFull: Alt+Q
-  resizeHalf: Alt+W
-  resizeSmall: Alt+E
+  resizeHalfLeft: Alt+A
+  resizeHalfRight: Alt+S
+  resizeSmall: Alt+W
 ```
 
 ### Dynamic Ignore List
